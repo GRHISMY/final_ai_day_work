@@ -169,22 +169,26 @@ public struct ContentView: View {
     private func moveTasks(source: IndexSet, destination: Int) {
         // 在主线程中安全地执行移动操作
         Task { @MainActor in
-            // 创建当前显示任务的副本，确保使用稳定的标识符而不是直接引用对象
-            var taskIdentifiers = filteredTasks.map { $0.id! }
+            // 创建当前显示任务的标识符数组，避免直接引用对象
+            let taskIdentifiers = filteredTasks.map { $0.objectID }
             
             // 确保目标位置在有效范围内
-            let validDestination = min(destination, taskIdentifiers.count)
+            let validDestination = min(max(0, destination), taskIdentifiers.count)
             
-            // 执行移动操作
-            taskIdentifiers.move(fromOffsets: source, toOffset: validDestination)
-            
-            // 重新排序任务对象
-            let reorderedTasks = taskIdentifiers.compactMap { id in
-                filteredTasks.first { $0.id == id }
+            // 在主线程中操作，确保数据一致性
+            await MainActor.run {
+                // 执行移动操作
+                var updatedIdentifiers = taskIdentifiers
+                updatedIdentifiers.move(fromOffsets: source, toOffset: validDestination)
+                
+                // 使用对象ID重新获取任务对象
+                let reorderedTasks = updatedIdentifiers.compactMap { objectID in
+                    viewContext.object(with: objectID) as? Task
+                }
+                
+                // 使用批量更新方法更新任务顺序
+                taskManager.updateTaskOrderForDisplay(reorderedTasks, allTasks: Array(allTasks), filter: selectedFilter)
             }
-            
-            // 使用批量更新方法更新任务顺序
-            taskManager.updateTaskOrderForDisplay(reorderedTasks, allTasks: Array(allTasks), filter: selectedFilter)
         }
     }
     
