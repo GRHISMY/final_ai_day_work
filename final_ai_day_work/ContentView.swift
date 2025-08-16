@@ -167,109 +167,24 @@ public struct ContentView: View {
     
     // 拖拽移动任务
     private func moveTasks(source: IndexSet, destination: Int) {
-        // 在"全部"视图中，分别处理未完成和已完成任务
-        if selectedFilter == .all {
-            moveTasksInAllView(source: source, destination: destination)
-        } else {
-            // 在筛选视图中，只允许在同类型任务间移动
-            moveTasksInFilteredView(source: source, destination: destination)
-        }
-    }
-    
-    // 在"全部"视图中移动任务
-    private func moveTasksInAllView(source: IndexSet, destination: Int) {
-        // 分别处理未完成和已完成任务
-        let activeTasks = filteredTasks.filter { !$0.isCompleted }
-        let completedTasks = filteredTasks.filter { $0.isCompleted }
-        
-        // 获取源任务的索引
-        let sourceIndices = Array(source)
-        
-        // 检查是否所有源任务都是同一类型
-        let sourceTasks = sourceIndices.map { filteredTasks[$0] }
-        let areAllActive = sourceTasks.allSatisfy { !$0.isCompleted }
-        let areAllCompleted = sourceTasks.allSatisfy { $0.isCompleted }
-        
-        // 只有当所有源任务都是同一类型时才允许移动
-        guard areAllActive || areAllCompleted else { return }
-        
-        if areAllActive {
-            // 移动未完成任务
-            moveActiveTasks(source: source, destination: destination, activeTasks: activeTasks)
-        } else if areAllCompleted {
-            // 移动已完成任务
-            moveCompletedTasks(source: source, destination: destination, completedTasks: completedTasks)
-        }
-    }
-    
-    // 移动未完成任务
-    private func moveActiveTasks(source: IndexSet, destination: Int, activeTasks: [Task]) {
-        // 创建未完成任务数组副本
-        var activeTasksArray = activeTasks
-        
-        // 计算在filteredTasks中的实际索引
-        let activeTaskIndices = filteredTasks.enumerated().compactMap { index, task in
-            !task.isCompleted ? index : nil
-        }
-        
-        // 转换源索引到未完成任务数组中的索引
-        let sourceInActive = source.compactMap { sourceIndex in
-            activeTaskIndices.firstIndex(of: sourceIndex)
-        }
-        
-        // 确保目标位置在有效范围内
-        let activeDestination = min(destination, activeTasksArray.count)
-        
-        // 执行移动操作
-        activeTasksArray.move(fromOffsets: IndexSet(sourceInActive), toOffset: activeDestination)
-        
-        // 更新未完成任务的顺序
-        for (index, task) in activeTasksArray.enumerated() {
-            taskManager.updateTask(task, order: Int32(index))
-        }
-    }
-    
-    // 移动已完成任务
-    private func moveCompletedTasks(source: IndexSet, destination: Int, completedTasks: [Task]) {
-        // 创建已完成任务数组副本
-        var completedTasksArray = completedTasks
-        
-        // 计算在filteredTasks中的实际索引
-        let completedTaskIndices = filteredTasks.enumerated().compactMap { index, task in
-            task.isCompleted ? index : nil
-        }
-        
-        // 转换源索引到已完成任务数组中的索引
-        let sourceInCompleted = source.compactMap { sourceIndex in
-            completedTaskIndices.firstIndex(of: sourceIndex)
-        }
-        
-        // 确保目标位置在有效范围内
-        let completedDestination = min(destination, completedTasksArray.count)
-        
-        // 执行移动操作
-        completedTasksArray.move(fromOffsets: IndexSet(sourceInCompleted), toOffset: completedDestination)
-        
-        // 更新已完成任务的顺序
-        for (index, task) in completedTasksArray.enumerated() {
-            taskManager.updateTask(task, order: Int32(index))
-        }
-    }
-    
-    // 在筛选视图中移动任务
-    private func moveTasksInFilteredView(source: IndexSet, destination: Int) {
-        // 在筛选视图中，所有任务都是同一类型的，所以可以直接移动
-        var tasksArray = Array(filteredTasks)
-        
-        // 确保目标位置在有效范围内
-        let validDestination = min(destination, tasksArray.count)
-        
-        // 执行移动操作
-        tasksArray.move(fromOffsets: source, toOffset: validDestination)
-        
-        // 更新任务顺序
-        for (index, task) in tasksArray.enumerated() {
-            taskManager.updateTask(task, order: Int32(index))
+        // 在主线程中安全地执行移动操作
+        Task { @MainActor in
+            // 创建当前显示任务的副本，确保使用稳定的标识符而不是直接引用对象
+            var taskIdentifiers = filteredTasks.map { $0.id! }
+            
+            // 确保目标位置在有效范围内
+            let validDestination = min(destination, taskIdentifiers.count)
+            
+            // 执行移动操作
+            taskIdentifiers.move(fromOffsets: source, toOffset: validDestination)
+            
+            // 重新排序任务对象
+            let reorderedTasks = taskIdentifiers.compactMap { id in
+                filteredTasks.first { $0.id == id }
+            }
+            
+            // 使用批量更新方法更新任务顺序
+            taskManager.updateTaskOrderForDisplay(reorderedTasks, allTasks: Array(allTasks), filter: selectedFilter)
         }
     }
     
@@ -308,26 +223,7 @@ public struct ContentView: View {
     }
 }
 
-// 任务筛选枚举
-enum TaskFilter: CaseIterable {
-    case all, active, completed
-    
-    var title: String {
-        switch self {
-        case .all: return "全部"
-        case .active: return "进行中"
-        case .completed: return "已完成"
-        }
-    }
-    
-    var icon: String {
-        switch self {
-        case .all: return "📋"
-        case .active: return "⏳"
-        case .completed: return "✅"
-        }
-    }
-}
+
 
 // 任务行视图
 struct TaskRowView: View {

@@ -99,16 +99,96 @@ public class TaskManager: ObservableObject {
         }
     }
     
-    // 更新任务顺序
+    // 更新任务顺序（保持向后兼容）
     public func updateTaskOrder(_ tasks: [Task]) {
-        for (index, task) in tasks.enumerated() {
-            task.order = Int32(index)
+        Task { @MainActor in
+            for (index, task) in tasks.enumerated() {
+                task.order = Int32(index)
+            }
+            saveContext()
         }
-        saveContext()
+    }
+    
+    // 根据显示过滤器更新任务顺序
+    public func updateTaskOrderForDisplay(_ displayTasks: [Task], allTasks: [Task], filter: TaskFilter) {
+        // 在主线程中执行更新操作以避免并发访问问题
+        Task { @MainActor in
+            // 创建所有任务的副本并按当前顺序排序
+            var allTasksSorted = allTasks.sorted { task1, task2 in
+                if task1.isCompleted == task2.isCompleted {
+                    return task1.order < task2.order
+                }
+                return !task1.isCompleted && task2.isCompleted
+            }
+            
+            // 根据过滤器类型更新顺序
+            switch filter {
+            case .all:
+                // 在"全部"视图中，需要分别处理未完成和已完成的任务
+                updateTaskOrderForAllView(displayTasks: displayTasks, allTasks: &allTasksSorted)
+            case .active:
+                // 在"进行中"视图中，只更新未完成任务的顺序
+                updateTaskOrderForActiveView(displayTasks: displayTasks, allTasks: &allTasksSorted)
+            case .completed:
+                // 在"已完成"视图中，只更新已完成任务的顺序
+                updateTaskOrderForCompletedView(displayTasks: displayTasks, allTasks: &allTasksSorted)
+            }
+            
+            // 保存更改
+            saveContext()
+        }
+    }
+    
+    // 更新"全部"视图中的任务顺序
+    private func updateTaskOrderForAllView(displayTasks: [Task], allTasks: inout [Task]) {
+        // 分离未完成和已完成的任务
+        let activeTasks = displayTasks.filter { !$0.isCompleted }
+        let completedTasks = displayTasks.filter { $0.isCompleted }
+        
+        // 更新未完成任务的顺序
+        var activeOrder = 0
+        for task in activeTasks {
+            if let index = allTasks.firstIndex(where: { $0.id == task.id }) {
+                allTasks[index].order = Int32(activeOrder)
+                activeOrder += 1
+            }
+        }
+        
+        // 更新已完成任务的顺序
+        var completedOrder = 0
+        for task in completedTasks {
+            if let index = allTasks.firstIndex(where: { $0.id == task.id }) {
+                allTasks[index].order = Int32(completedOrder)
+                completedOrder += 1
+            }
+        }
+    }
+    
+    // 更新"进行中"视图中的任务顺序
+    private func updateTaskOrderForActiveView(displayTasks: [Task], allTasks: inout [Task]) {
+        var order = 0
+        for task in displayTasks {
+            if let index = allTasks.firstIndex(where: { $0.id == task.id && !$0.isCompleted }) {
+                allTasks[index].order = Int32(order)
+                order += 1
+            }
+        }
+    }
+    
+    // 更新"已完成"视图中的任务顺序
+    private func updateTaskOrderForCompletedView(displayTasks: [Task], allTasks: inout [Task]) {
+        var order = 0
+        for task in displayTasks {
+            if let index = allTasks.firstIndex(where: { $0.id == task.id && $0.isCompleted }) {
+                allTasks[index].order = Int32(order)
+                order += 1
+            }
+        }
     }
     
     // 保存上下文
     private func saveContext() {
+        guard viewContext.hasChanges else { return }
         do {
             try viewContext.save()
         } catch {
