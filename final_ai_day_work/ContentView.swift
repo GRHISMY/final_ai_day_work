@@ -167,29 +167,23 @@ public struct ContentView: View {
     
     // 拖拽移动任务
     private func moveTasks(source: IndexSet, destination: Int) {
-        // 在主线程中安全地执行移动操作
-        Task { @MainActor in
-            // 创建当前显示任务的标识符数组，避免直接引用对象
-            let taskIdentifiers = filteredTasks.map { $0.objectID }
-            
-            // 确保目标位置在有效范围内
-            let validDestination = min(max(0, destination), taskIdentifiers.count)
-            
-            // 在主线程中操作，确保数据一致性
-            await MainActor.run {
-                // 执行移动操作
-                var updatedIdentifiers = taskIdentifiers
-                updatedIdentifiers.move(fromOffsets: source, toOffset: validDestination)
-                
-                // 使用对象ID重新获取任务对象
-                let reorderedTasks = updatedIdentifiers.compactMap { objectID in
-                    viewContext.object(with: objectID) as? Task
-                }
-                
-                // 使用批量更新方法更新任务顺序
-                taskManager.updateTaskOrderForDisplay(reorderedTasks, allTasks: Array(allTasks), filter: selectedFilter)
-            }
+        // 创建当前显示任务的标识符数组，避免直接引用对象
+        let taskIdentifiers = filteredTasks.map { $0.objectID }
+        
+        // 确保目标位置在有效范围内
+        let validDestination = min(max(0, destination), taskIdentifiers.count)
+        
+        // 执行移动操作
+        var updatedIdentifiers = taskIdentifiers
+        updatedIdentifiers.move(fromOffsets: source, toOffset: validDestination)
+        
+        // 使用对象ID重新获取任务对象
+        let reorderedTasks = updatedIdentifiers.compactMap { objectID in
+            viewContext.object(with: objectID) as? Task
         }
+        
+        // 使用批量更新方法更新任务顺序
+        taskManager.updateTaskOrderForDisplay(reorderedTasks, allTasks: Array(allTasks), filter: selectedFilter)
     }
     
     private func progressEmoji(for progress: Double) -> Text {

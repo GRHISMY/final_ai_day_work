@@ -101,46 +101,37 @@ public class TaskManager: ObservableObject {
     
     // 更新任务顺序（保持向后兼容）
     public func updateTaskOrder(_ tasks: [Task]) {
-        Task { @MainActor in
-            await MainActor.run {
-                for (index, task) in tasks.enumerated() {
-                    task.order = Int32(index)
-                }
-                saveContext()
-            }
+        for (index, task) in tasks.enumerated() {
+            task.order = Int32(index)
         }
+        saveContext()
     }
     
     // 根据显示过滤器更新任务顺序
     public func updateTaskOrderForDisplay(_ displayTasks: [Task], allTasks: [Task], filter: TaskFilter) {
-        // 在主线程中执行更新操作以避免并发访问问题
-        Task { @MainActor in
-            await MainActor.run {
-                // 创建所有任务的副本并按当前顺序排序
-                var allTasksSorted = allTasks.sorted { task1, task2 in
-                    if task1.isCompleted == task2.isCompleted {
-                        return task1.order < task2.order
-                    }
-                    return !task1.isCompleted && task2.isCompleted
-                }
-                
-                // 根据过滤器类型更新顺序
-                switch filter {
-                case .all:
-                    // 在"全部"视图中，需要分别处理未完成和已完成的任务
-                    updateTaskOrderForAllView(displayTasks: displayTasks, allTasks: &allTasksSorted)
-                case .active:
-                    // 在"进行中"视图中，只更新未完成任务的顺序
-                    updateTaskOrderForActiveView(displayTasks: displayTasks, allTasks: &allTasksSorted)
-                case .completed:
-                    // 在"已完成"视图中，只更新已完成任务的顺序
-                    updateTaskOrderForCompletedView(displayTasks: displayTasks, allTasks: &allTasksSorted)
-                }
-                
-                // 保存更改
-                saveContext()
+        // 创建所有任务的副本并按当前顺序排序
+        var allTasksSorted = allTasks.sorted { task1, task2 in
+            if task1.isCompleted == task2.isCompleted {
+                return task1.order < task2.order
             }
+            return !task1.isCompleted && task2.isCompleted
         }
+        
+        // 根据过滤器类型更新顺序
+        switch filter {
+        case .all:
+            // 在"全部"视图中，需要分别处理未完成和已完成的任务
+            updateTaskOrderForAllView(displayTasks: displayTasks, allTasks: &allTasksSorted)
+        case .active:
+            // 在"进行中"视图中，只更新未完成任务的顺序
+            updateTaskOrderForActiveView(displayTasks: displayTasks, allTasks: &allTasksSorted)
+        case .completed:
+            // 在"已完成"视图中，只更新已完成任务的顺序
+            updateTaskOrderForCompletedView(displayTasks: displayTasks, allTasks: &allTasksSorted)
+        }
+        
+        // 保存更改
+        saveContext()
     }
     
     // 更新"全部"视图中的任务顺序
