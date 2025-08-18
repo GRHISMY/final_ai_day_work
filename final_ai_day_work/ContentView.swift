@@ -83,15 +83,15 @@ public struct ContentView: View {
                             Text(filter.icon)
                             Text(filter.title)
                         }
-                        .foregroundColor(selectedFilter == filter ? .white : .primary)
+                        .foregroundColor(selectedFilter == filter ? .primary : .primary)
                         .padding(.horizontal, 12)
                         .padding(.vertical, 6)
                     }
                     .background(selectedFilter == filter ? Color.blue : Color.gray.opacity(0.2))
                     .cornerRadius(20)
                     .animation(.easeInOut, value: selectedFilter)
+                    .frame(maxWidth: .infinity)
                 }
-                Spacer()
             }
             .padding(.horizontal)
             
@@ -314,17 +314,9 @@ struct GradientProgressViewStyle: ProgressViewStyle {
                     .frame(height: 12)
                     .cornerRadius(6)
                 
-                // 渐变进度
+                // 进度条颜色根据进度变化
                 Rectangle()
-                    .fill(LinearGradient(
-                        gradient: Gradient(colors: [
-                            Color.red,
-                            Color.orange,
-                            Color.green
-                        ]),
-                        startPoint: .leading,
-                        endPoint: .trailing
-                    ))
+                    .fill(progress <= 0.35 ? Color.red : progress <= 0.7 ? Color.orange : Color.green)
                     .frame(width: CGFloat(progress) * geometry.size.width, height: 12)
                     .cornerRadius(6)
             }
