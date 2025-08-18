@@ -83,7 +83,7 @@ public struct ContentView: View {
                             Text(filter.icon)
                             Text(filter.title)
                         }
-                        .foregroundColor(selectedFilter == filter ? .primary : .primary)
+                        .foregroundColor(selectedFilter == filter ? .blue : .primary)
                         .padding(.horizontal, 12)
                         .padding(.vertical, 6)
                     }
