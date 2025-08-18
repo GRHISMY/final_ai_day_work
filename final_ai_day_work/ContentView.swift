@@ -17,12 +17,12 @@ public struct ContentView: View {
     
     // 根据过滤器获取任务
     @FetchRequest(
-        sortDescriptors: [NSSortDescriptor(keyPath: \Task.isCompleted, ascending: true), 
-                         NSSortDescriptor(keyPath: \Task.order, ascending: true)],
+        sortDescriptors: [NSSortDescriptor(keyPath: \TaskItem.isCompleted, ascending: true), 
+                         NSSortDescriptor(keyPath: \TaskItem.order, ascending: true)],
         animation: .default)
-    private var allTasks: FetchedResults<Task>
+    private var allTasks: FetchedResults<TaskItem>
     
-    private var filteredTasks: [Task] {
+    private var filteredTasks: [TaskItem] {
         switch selectedFilter {
         case .all:
             return Array(allTasks)
@@ -167,23 +167,26 @@ public struct ContentView: View {
     
     // 拖拽移动任务
     private func moveTasks(source: IndexSet, destination: Int) {
-        // 创建当前显示任务的标识符数组，避免直接引用对象
-        let taskIdentifiers = filteredTasks.map { $0.objectID }
-        
-        // 确保目标位置在有效范围内
-        let validDestination = min(max(0, destination), taskIdentifiers.count)
-        
-        // 执行移动操作
-        var updatedIdentifiers = taskIdentifiers
-        updatedIdentifiers.move(fromOffsets: source, toOffset: validDestination)
-        
-        // 使用对象ID重新获取任务对象
-        let reorderedTasks = updatedIdentifiers.compactMap { objectID in
-            viewContext.object(with: objectID) as? Task
+        // 在主线程中执行拖拽操作以避免并发访问问题
+        DispatchQueue.main.async {
+            // 创建当前显示任务的标识符数组，避免直接引用对象
+            let taskIdentifiers = self.filteredTasks.map { $0.objectID }
+            
+            // 确保目标位置在有效范围内
+            let validDestination = min(max(0, destination), taskIdentifiers.count)
+            
+            // 执行移动操作
+            var updatedIdentifiers = taskIdentifiers
+            updatedIdentifiers.move(fromOffsets: source, toOffset: validDestination)
+            
+            // 使用对象ID重新获取任务对象，确保在正确的上下文中访问
+            let reorderedTasks = updatedIdentifiers.compactMap { objectID in
+                self.viewContext.object(with: objectID) as? TaskItem
+            }
+            
+            // 使用批量更新方法更新任务顺序
+            self.taskManager.updateTaskOrderForDisplay(reorderedTasks, allTasks: Array(self.allTasks), filter: self.selectedFilter)
         }
-        
-        // 使用批量更新方法更新任务顺序
-        taskManager.updateTaskOrderForDisplay(reorderedTasks, allTasks: Array(allTasks), filter: selectedFilter)
     }
     
     private func progressEmoji(for progress: Double) -> Text {
@@ -225,10 +228,10 @@ public struct ContentView: View {
 
 // 任务行视图
 struct TaskRowView: View {
-    @ObservedObject var task: Task
+    @ObservedObject var task: TaskItem
     @State private var showingEditView = false
     @State private var isHovering = false
-    var onUpdate: (Task) -> Void
+    var onUpdate: (TaskItem) -> Void
     var taskManager: TaskManager
     
     var body: some View {

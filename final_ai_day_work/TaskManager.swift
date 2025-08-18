@@ -8,6 +8,9 @@
 import Foundation
 import CoreData
 
+// 创建一个类型别名来避免与Swift的Task冲突
+public typealias TaskItem = Task
+
 @MainActor
 public class TaskManager: ObservableObject {
     private let viewContext: NSManagedObjectContext
@@ -17,8 +20,8 @@ public class TaskManager: ObservableObject {
     }
     
     // 创建新任务
-    public func createTask(title: String, description: String? = nil, dueDate: Date? = nil) -> Task {
-        let newTask = Task(context: viewContext)
+    public func createTask(title: String, description: String? = nil, dueDate: Date? = nil) -> TaskItem {
+        let newTask = TaskItem(context: viewContext)
         newTask.id = UUID()
         newTask.title = title
         newTask.desc = description
@@ -35,7 +38,7 @@ public class TaskManager: ObservableObject {
     }
     
     // 更新任务
-    public func updateTask(_ task: Task, title: String? = nil, description: String? = nil, dueDate: Date? = nil, isCompleted: Bool? = nil, order: Int32? = nil) {
+    public func updateTask(_ task: TaskItem, title: String? = nil, description: String? = nil, dueDate: Date? = nil, isCompleted: Bool? = nil, order: Int32? = nil) {
         if let title = title {
             task.title = title
         }
@@ -60,13 +63,13 @@ public class TaskManager: ObservableObject {
     }
     
     // 删除任务
-    public func deleteTask(_ task: Task) {
+    public func deleteTask(_ task: TaskItem) {
         viewContext.delete(task)
         saveContext()
     }
     
     // 批量删除任务
-    public func deleteTasks(_ tasks: [Task]) {
+    public func deleteTasks(_ tasks: [TaskItem]) {
         for task in tasks {
             viewContext.delete(task)
         }
@@ -74,8 +77,8 @@ public class TaskManager: ObservableObject {
     }
     
     // 获取所有任务
-    public func fetchAllTasks() -> [Task] {
-        let request: NSFetchRequest<Task> = Task.fetchRequest()
+    public func fetchAllTasks() -> [TaskItem] {
+        let request: NSFetchRequest<TaskItem> = TaskItem.fetchRequest()
         
         do {
             return try viewContext.fetch(request)
@@ -86,8 +89,8 @@ public class TaskManager: ObservableObject {
     }
     
     // 根据ID获取任务
-    public func fetchTask(with id: UUID) -> Task? {
-        let request: NSFetchRequest<Task> = Task.fetchRequest()
+    public func fetchTask(with id: UUID) -> TaskItem? {
+        let request: NSFetchRequest<TaskItem> = TaskItem.fetchRequest()
         request.predicate = NSPredicate(format: "id == %@", id as CVarArg)
         
         do {
@@ -100,96 +103,94 @@ public class TaskManager: ObservableObject {
     }
     
     // 更新任务顺序（保持向后兼容）
-    public func updateTaskOrder(_ tasks: [Task]) {
-        for (index, task) in tasks.enumerated() {
-            task.order = Int32(index)
+    public func updateTaskOrder(_ tasks: [TaskItem]) {
+        DispatchQueue.main.async {
+            for (index, task) in tasks.enumerated() {
+                task.order = Int32(index)
+            }
+            self.saveContext()
         }
-        saveContext()
     }
     
     // 根据显示过滤器更新任务顺序
-    public func updateTaskOrderForDisplay(_ displayTasks: [Task], allTasks: [Task], filter: TaskFilter) {
-        // 创建所有任务的副本并按当前顺序排序
-        var allTasksSorted = allTasks.sorted { task1, task2 in
-            if task1.isCompleted == task2.isCompleted {
-                return task1.order < task2.order
+    public func updateTaskOrderForDisplay(_ displayTasks: [TaskItem], allTasks: [TaskItem], filter: TaskFilter) {
+        DispatchQueue.main.async {
+            // 创建所有任务的副本并按当前顺序排序
+            var allTasksSorted = allTasks.sorted { task1, task2 in
+                if task1.isCompleted == task2.isCompleted {
+                    return task1.order < task2.order
+                }
+                return !task1.isCompleted && task2.isCompleted
             }
-            return !task1.isCompleted && task2.isCompleted
+            
+            // 根据过滤器类型更新顺序
+            switch filter {
+            case .all:
+                // 在"全部"视图中，需要分别处理未完成和已完成的任务
+                self.updateTaskOrderForAllView(displayTasks: displayTasks, allTasks: &allTasksSorted)
+            case .active:
+                // 在"进行中"视图中，只更新未完成任务的顺序
+                self.updateTaskOrderForActiveView(displayTasks: displayTasks, allTasks: &allTasksSorted)
+            case .completed:
+                // 在"已完成"视图中，只更新已完成任务的顺序
+                self.updateTaskOrderForCompletedView(displayTasks: displayTasks, allTasks: &allTasksSorted)
+            }
+            
+            // 保存更改
+            self.saveContext()
         }
-        
-        // 根据过滤器类型更新顺序
-        switch filter {
-        case .all:
-            // 在"全部"视图中，需要分别处理未完成和已完成的任务
-            updateTaskOrderForAllView(displayTasks: displayTasks, allTasks: &allTasksSorted)
-        case .active:
-            // 在"进行中"视图中，只更新未完成任务的顺序
-            updateTaskOrderForActiveView(displayTasks: displayTasks, allTasks: &allTasksSorted)
-        case .completed:
-            // 在"已完成"视图中，只更新已完成任务的顺序
-            updateTaskOrderForCompletedView(displayTasks: displayTasks, allTasks: &allTasksSorted)
-        }
-        
-        // 保存更改
-        saveContext()
     }
     
     // 更新"全部"视图中的任务顺序
-    private func updateTaskOrderForAllView(displayTasks: [Task], allTasks: inout [Task]) {
+    private func updateTaskOrderForAllView(displayTasks: [TaskItem], allTasks: inout [TaskItem]) {
         // 分离未完成和已完成的任务
         let activeTasks = displayTasks.filter { !$0.isCompleted }
         let completedTasks = displayTasks.filter { $0.isCompleted }
         
         // 更新未完成任务的顺序
-        var activeOrder = 0
-        for task in activeTasks {
-            if let index = allTasks.firstIndex(where: { $0.id == task.id }) {
-                allTasks[index].order = Int32(activeOrder)
-                activeOrder += 1
+        for (index, task) in activeTasks.enumerated() {
+            if let allTasksIndex = allTasks.firstIndex(where: { $0.id == task.id && !$0.isCompleted }) {
+                allTasks[allTasksIndex].order = Int32(index)
             }
         }
         
         // 更新已完成任务的顺序
-        var completedOrder = 0
-        for task in completedTasks {
-            if let index = allTasks.firstIndex(where: { $0.id == task.id }) {
-                allTasks[index].order = Int32(completedOrder)
-                completedOrder += 1
+        for (index, task) in completedTasks.enumerated() {
+            if let allTasksIndex = allTasks.firstIndex(where: { $0.id == task.id && $0.isCompleted }) {
+                allTasks[allTasksIndex].order = Int32(index)
             }
         }
     }
     
     // 更新"进行中"视图中的任务顺序
-    private func updateTaskOrderForActiveView(displayTasks: [Task], allTasks: inout [Task]) {
-        var order = 0
-        for task in displayTasks {
-            if let index = allTasks.firstIndex(where: { $0.id == task.id && !$0.isCompleted }) {
-                allTasks[index].order = Int32(order)
-                order += 1
+    private func updateTaskOrderForActiveView(displayTasks: [TaskItem], allTasks: inout [TaskItem]) {
+        for (index, task) in displayTasks.enumerated() {
+            if let allTasksIndex = allTasks.firstIndex(where: { $0.id == task.id && !$0.isCompleted }) {
+                allTasks[allTasksIndex].order = Int32(index)
             }
         }
     }
     
     // 更新"已完成"视图中的任务顺序
-    private func updateTaskOrderForCompletedView(displayTasks: [Task], allTasks: inout [Task]) {
-        var order = 0
-        for task in displayTasks {
-            if let index = allTasks.firstIndex(where: { $0.id == task.id && $0.isCompleted }) {
-                allTasks[index].order = Int32(order)
-                order += 1
+    private func updateTaskOrderForCompletedView(displayTasks: [TaskItem], allTasks: inout [TaskItem]) {
+        for (index, task) in displayTasks.enumerated() {
+            if let allTasksIndex = allTasks.firstIndex(where: { $0.id == task.id && $0.isCompleted }) {
+                allTasks[allTasksIndex].order = Int32(index)
             }
         }
     }
     
     // 保存上下文
     private func saveContext() {
-        guard viewContext.hasChanges else { return }
-        do {
-            try viewContext.save()
-        } catch {
-            // Replace this implementation with code to handle the error appropriately.
-            let nsError = error as NSError
-            print("Unresolved error \(nsError), \(nsError.userInfo)")
+        DispatchQueue.main.async {
+            guard self.viewContext.hasChanges else { return }
+            do {
+                try self.viewContext.save()
+            } catch {
+                // Replace this implementation with code to handle the error appropriately.
+                let nsError = error as NSError
+                print("Unresolved error \(nsError), \(nsError.userInfo)")
+            }
         }
     }
 }
