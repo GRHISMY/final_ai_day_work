@@ -20,6 +20,7 @@
 		1E5C67032E4F23690018C805 /* StatusBarController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E5C67022E4F23690018C805 /* StatusBarController.swift */; };
 		e3589e1155f14ae399b4ca4d /* TaskManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7bafb751bae34aa082cffde9 /* TaskManager.swift */; };
 		fda7f84a8a17414182c198e4 /* TaskEditView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3fcb03b032e94963a8975e93 /* TaskEditView.swift */; };
+		4032fbb7327f418483565850 /* TaskFilter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 88f0d9188f194258905b06fd /* TaskFilter.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -56,6 +57,7 @@
 		1E5C660B2E4F23690018C805 /* final_ai_day_workUITestsLaunchTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = final_ai_day_workUITestsLaunchTests.swift; sourceTree = "<group>"; };
 		7bafb751bae34aa082cffde9 /* TaskManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskManager.swift; sourceTree = "<group>"; };
 		3fcb03b032e94963a8975e93 /* TaskEditView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskEditView.swift; sourceTree = "<group>"; };
+		88f0d9188f194258905b06fd /* TaskFilter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskFilter.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -117,6 +119,7 @@
 				1E5C67002E4F23690018C805 /* Info.plist */,
 				7bafb751bae34aa082cffde9 /* TaskManager.swift */,
 				3fcb03b032e94963a8975e93 /* TaskEditView.swift */,
+				88f0d9188f194258905b06fd /* TaskFilter.swift */,
 			);
 			path = final_ai_day_work;
 			sourceTree = "<group>";
@@ -284,6 +287,7 @@
 				1E5C67032E4F23690018C805 /* StatusBarController.swift in Sources */,
 				e3589e1155f14ae399b4ca4d /* TaskManager.swift in Sources */,
 				fda7f84a8a17414182c198e4 /* TaskEditView.swift in Sources */,
+				4032fbb7327f418483565850 /* TaskFilter.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
