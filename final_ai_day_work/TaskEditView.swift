@@ -10,7 +10,7 @@ import CoreData
 
 public struct TaskEditView: View {
     @Environment(\.dismiss) private var dismiss
-    @ObservedObject var task: Task
+    @ObservedObject var task: TaskItem
     @State private var title: String
     @State private var description: String
     @State private var dueDate: Date
@@ -18,7 +18,7 @@ public struct TaskEditView: View {
     
     private let taskManager: TaskManager
     
-    public init(task: Task, taskManager: TaskManager) {
+    public init(task: TaskItem, taskManager: TaskManager) {
         self.task = task
         self.taskManager = taskManager
         _title = State(initialValue: task.title ?? "")

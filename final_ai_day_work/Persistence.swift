@@ -14,7 +14,7 @@ struct PersistenceController {
         let result = PersistenceController(inMemory: true)
         let viewContext = result.container.viewContext
         for i in 0..<10 {
-            let newTask = Task(context: viewContext)
+            let newTask = TaskItem(context: viewContext)
             newTask.id = UUID()
             newTask.title = "示例任务 \(i + 1)"
             newTask.isCompleted = false
