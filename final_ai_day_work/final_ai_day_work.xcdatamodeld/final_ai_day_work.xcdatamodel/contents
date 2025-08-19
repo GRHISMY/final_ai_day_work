@@ -5,6 +5,7 @@
         <attribute name="title" optional="NO" attributeType="String" usesScalarValueType="NO"/>
         <attribute name="desc" optional="YES" attributeType="String" usesScalarValueType="NO"/>
         <attribute name="isCompleted" optional="NO" attributeType="Boolean" usesScalarValueType="YES"/>
+        <attribute name="markAsDeleted" optional="NO" attributeType="Boolean" usesScalarValueType="YES" defaultValue="false"/>
         <attribute name="createdAt" optional="NO" attributeType="Date" usesScalarValueType="NO"/>
         <attribute name="dueDate" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
         <attribute name="order" optional="NO" attributeType="Integer 32" usesScalarValueType="YES"/>
