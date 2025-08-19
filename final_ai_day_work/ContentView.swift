@@ -1,10 +1,3 @@
-//
-//  ContentView.swift
-//  final_ai_day_work
-//
-//  Created by 慧誉 on 2025/8/15.
-//
-
 import SwiftUI
 import CoreData
 
@@ -101,6 +94,9 @@ public struct ContentView: View {
                     TaskRowView(task: task, onUpdate: { updatedTask in
                         // 更新任务状态
                         taskManager.updateTask(updatedTask, isCompleted: updatedTask.isCompleted)
+                    }, onDelete: {
+                        // 删除单个任务
+                        taskManager.deleteTask(task)
                     }, taskManager: taskManager)
                 }
                 .onDelete(perform: deleteTasks)
@@ -224,14 +220,13 @@ public struct ContentView: View {
     }
 }
 
-
-
 // 任务行视图
 struct TaskRowView: View {
     @ObservedObject var task: TaskItem
     @State private var showingEditView = false
     @State private var isHovering = false
     var onUpdate: (TaskItem) -> Void
+    var onDelete: () -> Void
     var taskManager: TaskManager
     
     var body: some View {
@@ -289,6 +284,17 @@ struct TaskRowView: View {
             .buttonStyle(PlainButtonStyle())
             .opacity(isHovering ? 1.0 : 0.0)
             .animation(.easeInOut(duration: 0.2), value: isHovering)
+            
+            // 删除按钮
+            Button(action: {
+                onDelete()
+            }) {
+                Image(systemName: "trash")
+                    .foregroundColor(.red)
+            }
+            .buttonStyle(PlainButtonStyle())
+            .opacity(isHovering ? 1.0 : 0.0)
+            .animation(.easeInOut(duration: 0.2), value: isHovering)
         }
         .padding(.vertical, 4)
         .contentShape(Rectangle()) // 使整个区域可响应悬停
@@ -300,6 +306,13 @@ struct TaskRowView: View {
         }
     }
 }
+
+private let dateFormatter: DateFormatter = {
+    let formatter = DateFormatter()
+    formatter.dateStyle = .short
+    formatter.timeStyle = .short
+    return formatter
+}()
 
 // 渐变进度条样式
 struct GradientProgressViewStyle: ProgressViewStyle {
@@ -324,13 +337,6 @@ struct GradientProgressViewStyle: ProgressViewStyle {
         .frame(height: 12)
     }
 }
-
-private let dateFormatter: DateFormatter = {
-    let formatter = DateFormatter()
-    formatter.dateStyle = .short
-    formatter.timeStyle = .short
-    return formatter
-}()
 
 struct ContentView_Previews: PreviewProvider {
     static var previews: some View {
