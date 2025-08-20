@@ -42,8 +42,10 @@ struct PersistenceController {
         }
         
         // Enable automatic lightweight migration
-        container.persistentStoreDescriptions.first?.setValue(true, forKey: NSMigratePersistentStoresAutomaticallyOption)
-        container.persistentStoreDescriptions.first?.setValue(true, forKey: NSInferMappingModelAutomaticallyOption)
+        if let description = container.persistentStoreDescriptions.first {
+            description.setOption(true as NSNumber, forKey: NSMigratePersistentStoresAutomaticallyOption)
+            description.setOption(true as NSNumber, forKey: NSInferMappingModelAutomaticallyOption)
+        }
         
         container.viewContext.automaticallyMergesChangesFromParent = true
         container.loadPersistentStores(completionHandler: { (storeDescription, error) in
