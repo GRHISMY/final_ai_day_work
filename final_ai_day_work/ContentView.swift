@@ -1,5 +1,6 @@
 import SwiftUI
 import CoreData
+import _Concurrency
 
 public struct ContentView: View {
     @Environment(\.managedObjectContext) private var viewContext
@@ -12,6 +13,7 @@ public struct ContentView: View {
     @FetchRequest(
         sortDescriptors: [NSSortDescriptor(keyPath: \TaskItem.isCompleted, ascending: true), 
                          NSSortDescriptor(keyPath: \TaskItem.order, ascending: true)],
+        predicate: NSPredicate(format: "markAsDeleted == false"),
         animation: .default)
     private var allTasks: FetchedResults<TaskItem>
     
@@ -23,6 +25,9 @@ public struct ContentView: View {
             return allTasks.filter { !$0.isCompleted }
         case .completed:
             return allTasks.filter { $0.isCompleted }
+        case .history:
+            // 历史记录视图使用专门的HistoryView显示
+            return []
         }
     }
     
@@ -53,7 +58,9 @@ public struct ContentView: View {
                     addTask()
                 }
                 
-                Button(action: addTask) {
+                Button(action: {
+                    addTask()
+                }) {
                     HStack {
                         Image(systemName: "plus")
                         Text("添加")
@@ -89,20 +96,40 @@ public struct ContentView: View {
             .padding(.horizontal)
             
             // 任务列表
-            List {
-                ForEach(filteredTasks) { task in
-                    TaskRowView(task: task, onUpdate: { updatedTask in
-                        // 更新任务状态
-                        taskManager.updateTask(updatedTask, isCompleted: updatedTask.isCompleted)
-                    }, onDelete: {
-                        // 删除单个任务
-                        taskManager.deleteTask(task)
-                    }, taskManager: taskManager)
+            if selectedFilter == .history {
+                // 显示历史记录视图
+                HistoryView()
+                    .environmentObject(taskManager)
+            } else {
+                List {
+                    ForEach(filteredTasks) { task in
+                        TaskRowView(task: task, onUpdate: { updatedTask in
+                            // 更新任务状态
+                            taskManager.updateTask(updatedTask, isCompleted: updatedTask.isCompleted)
+                        }, onDelete: {
+                            // 删除单个任务
+                            taskManager.deleteTask(task)
+                        }, taskManager: taskManager)
+                    }
+                    .onDelete(perform: { indexSet in
+                        // 在后台队列中执行删除操作
+                        DispatchQueue.global(qos: .userInitiated).async {
+                            DispatchQueue.main.async {
+                                deleteTasks(offsets: indexSet)
+                            }
+                        }
+                    })
+                    .onMove(perform: { source, destination in
+                        // 在后台队列中执行移动操作
+                        DispatchQueue.global(qos: .userInitiated).async {
+                            DispatchQueue.main.async {
+                                moveTasks(source: source, destination: destination)
+                            }
+                        }
+                    })
                 }
-                .onDelete(perform: deleteTasks)
-                .onMove(perform: moveTasks)
+                .animation(.default, value: filteredTasks.count)
             }
-            .animation(.default, value: filteredTasks.count)
             
             // 进度条区域
             VStack(spacing: 8) {
@@ -116,7 +143,14 @@ public struct ContentView: View {
                         .frame(width: 30, alignment: .trailing)
                 }
                 
-                Button(action: clearCompletedTasks) {
+                Button(action: {
+                    // 在后台队列中执行清除操作
+                    DispatchQueue.global(qos: .userInitiated).async {
+                        DispatchQueue.main.async {
+                            clearCompletedTasks()
+                        }
+                    }
+                }) {
                     HStack {
                         Image(systemName: "trash")
                         Text("🧹 清除已完成任务")
@@ -129,7 +163,8 @@ public struct ContentView: View {
             .padding(.horizontal)
         }
         .padding(.vertical)
-        .frame(minWidth: 320, idealWidth: 360, maxWidth: 420, minHeight: 400, idealHeight: 540, maxHeight: 700)
+        .frame(minWidth: 320, idealWidth: 360, maxWidth: .infinity, minHeight: 400, idealHeight: 540, maxHeight: .infinity)
+        .aspectRatio(3/4, contentMode: .fit)
         .onAppear {
             // 添加一些示例任务用于演示
             if allTasks.isEmpty {
@@ -138,23 +173,23 @@ public struct ContentView: View {
         }
     }
     
-    private func addTask() {
+    @MainActor private func addTask() {
         guard !newTaskTitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
         
         withAnimation {
-            let newTask = taskManager.createTask(title: newTaskTitle)
+            _ = taskManager.createTask(title: newTaskTitle)
             newTaskTitle = ""
         }
     }
     
-    private func deleteTasks(offsets: IndexSet) {
+    @MainActor private func deleteTasks(offsets: IndexSet) {
         withAnimation {
             let tasksToDelete = offsets.map { filteredTasks[$0] }
             taskManager.deleteTasks(tasksToDelete)
         }
     }
     
-    private func clearCompletedTasks() {
+    @MainActor private func clearCompletedTasks() {
         withAnimation {
             let completedTasks = allTasks.filter { $0.isCompleted }
             taskManager.deleteTasks(completedTasks)
@@ -162,27 +197,24 @@ public struct ContentView: View {
     }
     
     // 拖拽移动任务
-    private func moveTasks(source: IndexSet, destination: Int) {
-        // 在主线程中执行拖拽操作以避免并发访问问题
-        DispatchQueue.main.async {
-            // 创建当前显示任务的标识符数组，避免直接引用对象
-            let taskIdentifiers = self.filteredTasks.map { $0.objectID }
-            
-            // 确保目标位置在有效范围内
-            let validDestination = min(max(0, destination), taskIdentifiers.count)
-            
-            // 执行移动操作
-            var updatedIdentifiers = taskIdentifiers
-            updatedIdentifiers.move(fromOffsets: source, toOffset: validDestination)
-            
-            // 使用对象ID重新获取任务对象，确保在正确的上下文中访问
-            let reorderedTasks = updatedIdentifiers.compactMap { objectID in
-                self.viewContext.object(with: objectID) as? TaskItem
-            }
-            
-            // 使用批量更新方法更新任务顺序
-            self.taskManager.updateTaskOrderForDisplay(reorderedTasks, allTasks: Array(self.allTasks), filter: self.selectedFilter)
+    @MainActor private func moveTasks(source: IndexSet, destination: Int) {
+        // 创建当前显示任务的标识符数组，避免直接引用对象
+        let taskIdentifiers = self.filteredTasks.map { $0.objectID }
+        
+        // 确保目标位置在有效范围内
+        let validDestination = min(max(0, destination), taskIdentifiers.count)
+        
+        // 执行移动操作
+        var updatedIdentifiers = taskIdentifiers
+        updatedIdentifiers.move(fromOffsets: source, toOffset: validDestination)
+        
+        // 使用对象ID重新获取任务对象，确保在正确的上下文中访问
+        let reorderedTasks = updatedIdentifiers.compactMap { objectID in
+            self.viewContext.object(with: objectID) as? TaskItem
         }
+        
+        // 使用批量更新方法更新任务顺序
+        self.taskManager.updateTaskOrderForDisplay(reorderedTasks, allTasks: Array(self.allTasks), filter: self.selectedFilter)
     }
     
     private func progressEmoji(for progress: Double) -> Text {
@@ -202,7 +234,7 @@ public struct ContentView: View {
         }
     }
     
-    private func addSampleTasks() {
+    @MainActor private func addSampleTasks() {
         let sampleTasks = [
             "完成项目计划书",
             "准备会议材料",
@@ -219,100 +251,6 @@ public struct ContentView: View {
         }
     }
 }
-
-// 任务行视图
-struct TaskRowView: View {
-    @ObservedObject var task: TaskItem
-    @State private var showingEditView = false
-    @State private var isHovering = false
-    var onUpdate: (TaskItem) -> Void
-    var onDelete: () -> Void
-    var taskManager: TaskManager
-    
-    var body: some View {
-        HStack {
-            Button(action: {
-                withAnimation(.easeInOut(duration: 0.2)) {
-                    // 切换完成状态
-                    task.isCompleted.toggle()
-                    onUpdate(task)
-                }
-            }) {
-                Image(systemName: task.isCompleted ? "checkmark.circle.fill" : "circle")
-                    .foregroundColor(task.isCompleted ? .green : .primary)
-                    .font(.title3)
-                    .scaleEffect(isHovering ? 1.1 : 1.0)
-            }
-            .buttonStyle(PlainButtonStyle())
-            .onHover { hovering in
-                isHovering = hovering
-            }
-            
-            VStack(alignment: .leading) {
-                Text(task.title ?? "未命名任务")
-                    .strikethrough(task.isCompleted)
-                    .foregroundColor(task.isCompleted ? .secondary : .primary)
-                    .animation(.none, value: task.isCompleted)
-                
-                if let dueDate = task.dueDate {
-                    Text("截止时间: \(dueDate, formatter: dateFormatter)")
-                        .font(.caption)
-                        .foregroundColor(dueDate < Date() ? .red : .secondary)
-                }
-            }
-            
-            Spacer()
-            
-            if task.isCompleted {
-                Text("✅")
-                    .transition(.scale)
-            } else if let dueDate = task.dueDate, dueDate < Date() {
-                Text("⏰")
-                    .transition(.scale)
-            } else if let dueDate = task.dueDate, Calendar.current.isDateInToday(dueDate) {
-                Text("🎯")
-                    .transition(.scale)
-            }
-            
-            // 编辑按钮
-            Button(action: {
-                showingEditView = true
-            }) {
-                Image(systemName: "pencil")
-                    .foregroundColor(.blue)
-            }
-            .buttonStyle(PlainButtonStyle())
-            .opacity(isHovering ? 1.0 : 0.0)
-            .animation(.easeInOut(duration: 0.2), value: isHovering)
-            
-            // 删除按钮
-            Button(action: {
-                onDelete()
-            }) {
-                Image(systemName: "trash")
-                    .foregroundColor(.red)
-            }
-            .buttonStyle(PlainButtonStyle())
-            .opacity(isHovering ? 1.0 : 0.0)
-            .animation(.easeInOut(duration: 0.2), value: isHovering)
-        }
-        .padding(.vertical, 4)
-        .contentShape(Rectangle()) // 使整个区域可响应悬停
-        .onHover { hovering in
-            isHovering = hovering
-        }
-        .sheet(isPresented: $showingEditView) {
-            TaskEditView(task: task, taskManager: taskManager)
-        }
-    }
-}
-
-private let dateFormatter: DateFormatter = {
-    let formatter = DateFormatter()
-    formatter.dateStyle = .short
-    formatter.timeStyle = .short
-    return formatter
-}()
 
 // 渐变进度条样式
 struct GradientProgressViewStyle: ProgressViewStyle {

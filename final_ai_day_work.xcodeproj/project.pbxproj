@@ -21,6 +21,8 @@
 		e3589e1155f14ae399b4ca4d /* TaskManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7bafb751bae34aa082cffde9 /* TaskManager.swift */; };
 		fda7f84a8a17414182c198e4 /* TaskEditView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3fcb03b032e94963a8975e93 /* TaskEditView.swift */; };
 		4032fbb7327f418483565850 /* TaskFilter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 88f0d9188f194258905b06fd /* TaskFilter.swift */; };
+		A05B0395-5485-4890-BEC8-F3947FF6AFCE /* HistoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B542D1E-1718-4E19-BF16-7A2DDBE0FD7C /* HistoryView.swift */; };
+		5EB571C8-3B02-4114-A943-179C2A002476 /* TaskRowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D3D07FF9-25D1-4EA3-B41E-CA7BF98A972D /* TaskRowView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -58,6 +60,8 @@
 		7bafb751bae34aa082cffde9 /* TaskManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskManager.swift; sourceTree = "<group>"; };
 		3fcb03b032e94963a8975e93 /* TaskEditView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskEditView.swift; sourceTree = "<group>"; };
 		88f0d9188f194258905b06fd /* TaskFilter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskFilter.swift; sourceTree = "<group>"; };
+		9B542D1E-1718-4E19-BF16-7A2DDBE0FD7C /* HistoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryView.swift; sourceTree = "<group>"; };
+		D3D07FF9-25D1-4EA3-B41E-CA7BF98A972D /* TaskRowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = final_ai_day_work/TaskRowView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -120,6 +124,7 @@
 				7bafb751bae34aa082cffde9 /* TaskManager.swift */,
 				3fcb03b032e94963a8975e93 /* TaskEditView.swift */,
 				88f0d9188f194258905b06fd /* TaskFilter.swift */,
+				9B542D1E-1718-4E19-BF16-7A2DDBE0FD7C /* HistoryView.swift */,
 			);
 			path = final_ai_day_work;
 			sourceTree = "<group>";
@@ -288,6 +293,8 @@
 				e3589e1155f14ae399b4ca4d /* TaskManager.swift in Sources */,
 				fda7f84a8a17414182c198e4 /* TaskEditView.swift in Sources */,
 				4032fbb7327f418483565850 /* TaskFilter.swift in Sources */,
+				A05B0395-5485-4890-BEC8-F3947FF6AFCE /* HistoryView.swift in Sources */,
+				5EB571C8-3B02-4114-A943-179C2A002476 /* TaskRowView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

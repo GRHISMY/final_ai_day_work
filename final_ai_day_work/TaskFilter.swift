@@ -9,13 +9,14 @@ import Foundation
 
 // 任务筛选枚举
 public enum TaskFilter: CaseIterable {
-    case all, active, completed
+    case all, active, completed, history
     
     public var title: String {
         switch self {
         case .all: return "全部"
-        case .active: return "进行中"
-        case .completed: return "已完成"
+        case .active: return "进行"
+        case .completed: return "完成"
+        case .history: return "历史"
         }
     }
     
@@ -24,6 +25,7 @@ public enum TaskFilter: CaseIterable {
         case .all: return "📋"
         case .active: return "⏳"
         case .completed: return "✅"
+        case .history: return "📚"
         }
     }
 }

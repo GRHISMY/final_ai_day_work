@@ -26,6 +26,7 @@ public class TaskManager: ObservableObject {
         newTask.title = title
         newTask.desc = description
         newTask.isCompleted = false
+        newTask.markAsDeleted = false
         newTask.createdAt = Date()
         newTask.dueDate = dueDate
         
@@ -62,23 +63,38 @@ public class TaskManager: ObservableObject {
         saveContext()
     }
     
-    // 删除任务
+    // 删除任务（假删除）
     public func deleteTask(_ task: TaskItem) {
+        task.markAsDeleted = true
+        saveContext()
+    }
+    
+    // 批量删除任务（假删除）
+    public func deleteTasks(_ tasks: [TaskItem]) {
+        for task in tasks {
+            task.markAsDeleted = true
+        }
+        saveContext()
+    }
+    
+    // 永久删除任务
+    public func permanentlyDeleteTask(_ task: TaskItem) {
         viewContext.delete(task)
         saveContext()
     }
     
-    // 批量删除任务
-    public func deleteTasks(_ tasks: [TaskItem]) {
+    // 批量永久删除任务
+    public func permanentlyDeleteTasks(_ tasks: [TaskItem]) {
         for task in tasks {
             viewContext.delete(task)
         }
         saveContext()
     }
     
-    // 获取所有任务
+    // 获取所有任务（排除已删除的）
     public func fetchAllTasks() -> [TaskItem] {
         let request: NSFetchRequest<TaskItem> = TaskItem.fetchRequest()
+        request.predicate = NSPredicate(format: "markAsDeleted == false")
         
         do {
             return try viewContext.fetch(request)
@@ -88,10 +104,24 @@ public class TaskManager: ObservableObject {
         }
     }
     
-    // 根据ID获取任务
+    // 获取已完成的任务（排除已删除的，按完成时间排序）
+    public func fetchCompletedTasks() -> [TaskItem] {
+        let request: NSFetchRequest<TaskItem> = TaskItem.fetchRequest()
+        request.predicate = NSPredicate(format: "isCompleted == true AND markAsDeleted == false")
+        request.sortDescriptors = [NSSortDescriptor(keyPath: \TaskItem.createdAt, ascending: false)]
+        
+        do {
+            return try viewContext.fetch(request)
+        } catch {
+            print("Error fetching completed tasks: \(error)")
+            return []
+        }
+    }
+    
+    // 根据ID获取任务（排除已删除的）
     public func fetchTask(with id: UUID) -> TaskItem? {
         let request: NSFetchRequest<TaskItem> = TaskItem.fetchRequest()
-        request.predicate = NSPredicate(format: "id == %@", id as CVarArg)
+        request.predicate = NSPredicate(format: "id == %@ AND markAsDeleted == false", id as CVarArg)
         
         do {
             let results = try viewContext.fetch(request)
@@ -99,6 +129,20 @@ public class TaskManager: ObservableObject {
         } catch {
             print("Error fetching task with id \(id): \(error)")
             return nil
+        }
+    }
+    
+    // 获取已删除的任务
+    public func fetchDeletedTasks() -> [TaskItem] {
+        let request: NSFetchRequest<TaskItem> = TaskItem.fetchRequest()
+        request.predicate = NSPredicate(format: "markAsDeleted == true")
+        request.sortDescriptors = [NSSortDescriptor(keyPath: \TaskItem.createdAt, ascending: false)]
+        
+        do {
+            return try viewContext.fetch(request)
+        } catch {
+            print("Error fetching deleted tasks: \(error)")
+            return []
         }
     }
     
@@ -134,6 +178,9 @@ public class TaskManager: ObservableObject {
             case .completed:
                 // 在"已完成"视图中，只更新已完成任务的顺序
                 self.updateTaskOrderForCompletedView(displayTasks: displayTasks, allTasks: &allTasksSorted)
+            case .history:
+                // 历史记录视图不需要更新任务顺序
+                break
             }
             
             // 保存更改
@@ -181,7 +228,7 @@ public class TaskManager: ObservableObject {
     }
     
     // 保存上下文
-    private func saveContext() {
+    public func saveContext() {
         DispatchQueue.main.async {
             guard self.viewContext.hasChanges else { return }
             do {
